@@ -9,23 +9,23 @@ will check only that part, instead of all.
 
 The output is like this:
 
-  Part: glib (https://gitlab.gnome.org/GNOME/glib.git)
-    Current branch: glib-2-72
-    Current version: 2.72
-    Newer branches
-      mcatanzaro/glib-2-68-rhel9
-      mcatanzaro/glib-2-56-rhel8
-      mcatanzaro/#2597
-      mcatanzaro/#1346
-      main-c89
-      262.c89
-    Alternative tags
-      GLIB_1_2_9PRE3
-      EAZEL-NAUTILUS-MS-AUG07
-      2.73.0
-      2.72.2
-      2.72.1
-      2.72.0
+  Part: glib (https://gitlab.gnome.org/GNOME/glib.git)  
+    Current branch: glib-2-72  
+    Current version: 2.72  
+    Newer branches  
+      mcatanzaro/glib-2-68-rhel9  
+      mcatanzaro/glib-2-56-rhel8  
+      mcatanzaro/#2597  
+      mcatanzaro/#1346  
+      main-c89  
+      262.c89  
+    Alternative tags  
+      GLIB_1_2_9PRE3  
+      EAZEL-NAUTILUS-MS-AUG07  
+      2.73.0  
+      2.72.2  
+      2.72.1  
+      2.72.0  
 
 The first line contains the part name and the repository URI.
 The second line contains the current branch or tag configured in the YAML file
