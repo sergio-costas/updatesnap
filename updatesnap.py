@@ -21,6 +21,7 @@ class Colors(object):
         self.ok = self.green
         self.note = self.cyan
 
+
     def clear_line(self):
         print("\033[2K", end="\r") # clear the line
 
@@ -105,6 +106,7 @@ class Version(object):
         if self._check_majorminor(version_string, '.', False, True):
             return
 
+
     def _check_major(self, version_string, prefix):
         search_string = f'[0-9]+$'
         if not prefix:
@@ -116,6 +118,7 @@ class Version(object):
             self.valid = True
             return True
         return False
+
 
     def _check_majorminor(self, version_string, separator, prefix, suffix = False):
         separator2 = separator.replace('.', '[.]')
@@ -160,6 +163,7 @@ class Version(object):
             self.valid = True
             return True
         return False
+
 
     def __str__(self):
         if self.major is None:
@@ -243,6 +247,7 @@ class GitClass(object):
             self._user = secrets['github']['user']
             self._token = secrets['github']['token']
 
+
     def _read_uri(self, uri):
         print(f"Asking URI {uri}     ", end="\r")
         while True:
@@ -256,6 +261,7 @@ class GitClass(object):
                 print(f"Retrying URI {uri}     ", end="\r")
                 time.sleep(1)
         return response
+
 
     def _read_pages(self, uri):
         elements = []
@@ -282,6 +288,7 @@ class GitClass(object):
         self._colors.clear_line()
         return elements
 
+
     def _get_uri(self, repository, min_elements):
         repository = repository.strip()
         if repository[-4:] == '.git':
@@ -297,6 +304,7 @@ class GitClass(object):
             return None
         return uri
 
+
     def _rb(self, text):
         """ Remove trailing and heading '/' characters, to simplify building URIs """
         while (len(text) > 0) and (text[0] == '/'):
@@ -304,6 +312,7 @@ class GitClass(object):
         while (len(text) > 0) and (text[-1] == '/'):
             text = text[:-1]
         return text
+
 
     def join_url(self, *args):
         if len(args) == 0:
@@ -316,6 +325,7 @@ class GitClass(object):
                 element = element[1:]
             output += '/' + element
         return output
+
 
 class Github(GitClass):
     def __init__(self, secrets):
@@ -415,6 +425,7 @@ class Snapcraft(object):
         self.get_versions = True
         self._last_part = None
 
+
     def _load_secrets(self, filename):
         secrets_file = os.path.expanduser('~/.config/updatesnap/updatesnap.secrets')
         if os.path.exists(secrets_file):
@@ -428,11 +439,13 @@ class Snapcraft(object):
             return
         self._secrets = {}
 
+
     def _print_message(self, part, message, source = None):
         if part != self._last_part:
             print(f"{self._colors.note}Part: {self._colors.reset}{part}{f' ({source})' if source else ''}")
             self._last_part = part
         print("  " + message)
+
 
     def _get_tags(self, source):
         if not self.get_versions:
@@ -443,6 +456,7 @@ class Snapcraft(object):
         tags = self._gitlab.get_tags(source)
         return tags
 
+
     def _get_branches(self, source):
         if not self.get_versions:
             return []
@@ -452,6 +466,7 @@ class Snapcraft(object):
         branches = self._gitlab.get_branches(source)
         return branches
 
+
     def _get_version(self, entry, check = False):
 
         version = Version(entry)
@@ -459,9 +474,11 @@ class Snapcraft(object):
             print(f"{self._colors.critical}Unknown tag/branch format for {entry}{self._colors.reset}")
         return version
 
+
     def process_parts(self):
         for part in self._config['parts']:
             self.process_part(part)
+
 
     def process_part(self, part):
             data = self._config['parts'][part]
@@ -501,6 +518,7 @@ class Snapcraft(object):
                 tags = self._get_tags(source)
                 self._sort_elements(part, current_version, tags, f"{self._colors.note}Alternative tags{self._colors.reset}", True)
 
+
     def _sort_elements(self, part, current_version, elements, text, show_equal = False):
         newer_elements = []
         if elements is None:
@@ -515,6 +533,7 @@ class Snapcraft(object):
             newer_elements.sort(reverse = True)
             for element in newer_elements:
                 self._print_message(part, "  " + element)
+
 
 if sys.argv[1] == '-s':
     silent = True
