@@ -7,6 +7,7 @@ import urllib
 import re
 import time
 import os
+import datetime
 
 class Colors(object):
     def __init__(self):
@@ -289,6 +290,16 @@ class GitClass(object):
         return elements
 
 
+    def _read_page(self, uri):
+        response = self._read_uri(uri)
+        if response.status_code != 200:
+            print(f"{self._colors.critical}Status code {response.status_code} when asking for {uri}{self._colors.reset}")
+            return None
+        headers = response.headers
+        data = response.json()
+        return data
+
+
     def _get_uri(self, repository, min_elements):
         repository = repository.strip()
         if repository[-4:] == '.git':
@@ -360,7 +371,15 @@ class Github(GitClass):
         data = self._read_pages(tag_command)
         tags = []
         for tag in data:
-            tags.append({"name": tag['name']})
+            tag_info = self._read_page(tag['commit']['url'])
+            if tag_info is None:
+                continue
+            if 'commiter' in tag_info['commit']:
+                date = tag_info['commit']['committer']['date']
+            else:
+                date = tag_info['commit']['author']['date']
+            tags.append({"name": tag['name'],
+                         "date": datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")})
         self._colors.clear_line()
         return tags
 
@@ -409,7 +428,9 @@ class Gitlab(GitClass):
         data = self._read_pages(tag_command)
         tags = []
         for tag in data:
-            tags.append({"name": tag['name'], "date": tag['commit']['committed_date']})
+            tags.append({"name": tag['name'],
+                         "date": datetime.datetime.fromisoformat(tag['commit']['committed_date'])})
+        self._colors.clear_line()
         return tags
 
 
@@ -444,7 +465,8 @@ class Snapcraft(object):
         if part != self._last_part:
             print(f"{self._colors.note}Part: {self._colors.reset}{part}{f' ({source})' if source else ''}")
             self._last_part = part
-        print("  " + message)
+        print("  " + message, end="")
+        print(self._colors.reset)
 
 
     def _get_tags(self, source):
@@ -491,10 +513,12 @@ class Snapcraft(object):
                 (not source.startswith('git://')) and
                 ((not 'source-type' in data) or (data['source-type'] != 'git'))):
                     self._print_message(part, f"{self._colors.critical}Source is neither http:// nor git://{self._colors.reset}", source = source)
+                    print()
                     return
 
             if not source.endswith('.git'):
                 self._print_message(part, f"{self._colors.warning}Source is not a GIT repository{self._colors.reset}", source = source)
+                print()
                 return
 
             if ('source-tag' not in data) and ('source-branch' not in data):
@@ -503,21 +527,40 @@ class Snapcraft(object):
             if 'source-tag' in data:
                 self._print_message(part, f"Current tag: {data['source-tag']}", source = source)
                 current_version = self._get_version(data['source-tag'], True)
-                self._print_message(part, f"Current version: {current_version}")
                 tags = self._get_tags(source)
-                self._sort_elements(part, current_version, tags, "Newer tags")
-                branches = self._get_branches(source)
-                self._sort_elements(part, current_version, branches, f"{self._colors.note}Alternative branches{self._colors.reset}", True)
+                self._sort_tags(part, data['source-tag'], tags)
 
             if 'source-branch' in data:
                 self._print_message(part, f"Current branch: {data['source-branch']}", source = source)
                 current_version = self._get_version(data['source-branch'], True)
                 self._print_message(part, f"Current version: {current_version}")
                 branches = self._get_branches(source)
-                self._sort_elements(part, current_version, branches, "Newer branches")
-                tags = self._get_tags(source)
-                self._sort_elements(part, current_version, tags, f"{self._colors.note}Alternative tags{self._colors.reset}", True)
+                self._sort_elements(part, current_version, branches, "branch")
+                self._print_message(part, f"{self._colors.note}Should be moved to an specific tag{self._colors.reset}")
+            print()
 
+
+    def _sort_tags(self, part, current_tag, tags):
+        if tags is None:
+            self._print_message(part, f"{self._colors.critical}No tags found")
+            return
+        current_date = None
+        for tag in tags:
+            if tag['name'] == current_tag:
+                current_date = tag['date']
+                break
+        if current_date is None:
+            self._print_message(part, f"{self._colors.critical}Error:{self._colors.reset} can't find the current tag in the tag list.")
+            return
+        self._print_message(part, f"Current tag date: {current_date}")
+        newer_tags = [t for t in tags if (t['date'] >= current_date) and (t['name'] != current_tag)]
+        if len(newer_tags) == 0:
+            self._print_message(part, f"{self._colors.ok}Tag updated{self._colors.reset}")
+        else:
+            self._print_message(part, f"{self._colors.warning}Newer tags:{self._colors.reset}")
+            newer_tags.sort(reverse = True, key=lambda x: x.get('date'))
+            for tag in newer_tags:
+                self._print_message(part, f"  {tag['name']} ({tag['date']})")
 
     def _sort_elements(self, part, current_version, elements, text, show_equal = False):
         newer_elements = []
@@ -527,7 +570,7 @@ class Snapcraft(object):
             if (current_version is None) or self._get_version(element['name']).is_newer(current_version, show_equal):
                 newer_elements.append(element['name'])
         if len(newer_elements) == 0:
-            self._print_message(part, f"{self._colors.ok}Updated{self._colors.reset}")
+            self._print_message(part, f"{self._colors.ok}Branch updated{self._colors.reset}")
         else:
             self._print_message(part, text)
             newer_elements.sort(reverse = True)
