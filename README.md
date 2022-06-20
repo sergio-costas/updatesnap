@@ -9,6 +9,7 @@ will check only that part, instead of all.
 
 The output is like this:
 
+```
   Part: glib (https://gitlab.gnome.org/GNOME/glib.git)  
     Current branch: glib-2-72  
     Current version: 2.72  
@@ -26,6 +27,7 @@ The output is like this:
       2.72.2  
       2.72.1  
       2.72.0  
+```
 
 The first line contains the part name and the repository URI.
 The second line contains the current branch or tag configured in the YAML file
