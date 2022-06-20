@@ -542,7 +542,7 @@ class Snapcraft(object):
 
     def _sort_tags(self, part, current_tag, tags):
         if tags is None:
-            print("No tags found")
+            self._print_message(part, f"{self._colors.critical}No tags found")
             return
         current_date = None
         for tag in tags:
@@ -550,7 +550,7 @@ class Snapcraft(object):
                 current_date = tag['date']
                 break
         if current_date is None:
-            print(f"{self._colors.critical}Error:{self._colors.reset} can't find the current tag in the tag list.")
+            self._print_message(part, f"{self._colors.critical}Error:{self._colors.reset} can't find the current tag in the tag list.")
             return
         self._print_message(part, f"Current tag date: {current_date}")
         newer_tags = [t for t in tags if (t['date'] >= current_date) and (t['name'] != current_tag)]
