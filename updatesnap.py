@@ -521,6 +521,13 @@ class Snapcraft(object):
                 print()
                 return
 
+            if 'savannah' in source:
+                url = urllib.parse.urlparse(source)
+                if 'savannah' in url.netloc:
+                    self._print_message(part, f"{self._colors.warning}Savannah repositories not supported{self._colors.reset}", source = source)
+                    print()
+                    return
+
             if ('source-tag' not in data) and ('source-branch' not in data):
                 self._print_message(part, f"{self._colors.warning}Has neither a source-tag nor a source-branch{self._colors.reset}", source = source)
 
