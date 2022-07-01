@@ -528,13 +528,15 @@ class Snapcraft(object):
                     print()
                     return
 
+            tags = self._get_tags(source)
+
             if ('source-tag' not in data) and ('source-branch' not in data):
                 self._print_message(part, f"{self._colors.warning}Has neither a source-tag nor a source-branch{self._colors.reset}", source = source)
+                self._print_last_tags(part, tags)
 
             if 'source-tag' in data:
                 self._print_message(part, f"Current tag: {data['source-tag']}", source = source)
                 current_version = self._get_version(data['source-tag'], True)
-                tags = self._get_tags(source)
                 self._sort_tags(part, data['source-tag'], tags)
 
             if 'source-branch' in data:
@@ -544,7 +546,16 @@ class Snapcraft(object):
                 branches = self._get_branches(source)
                 self._sort_elements(part, current_version, branches, "branch")
                 self._print_message(part, f"{self._colors.note}Should be moved to an specific tag{self._colors.reset}")
+                self._print_last_tags(part, tags)
             print()
+
+
+    def _print_last_tags(self, part, tags):
+        tags.sort(reverse = True, key=lambda x: x.get('date'))
+        tags = tags[:4]
+        self._print_message(part, f"Last tags:")
+        for tag in tags:
+            self._print_message(part, f"  {tag['name']} ({tag['date']})")
 
 
     def _sort_tags(self, part, current_tag, tags):
