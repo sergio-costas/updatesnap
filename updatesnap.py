@@ -435,11 +435,24 @@ class Gitlab(GitClass):
 
 
 class Snapcraft(object):
-    def __init__(self, filename):
+    def __init__(self, filename = None):
         super().__init__()
         self._colors = Colors()
-        with open(filename, "r") as f:
-            self._config = yaml.safe_load(f)
+        if filename is None:
+            filename = '.'
+        if os.path.isdir(filename):
+            f1 = os.path.join(filename, "snapcraft.yaml")
+            if not os.path.exists(f1):
+                f1 = os.path.join(filename, "snap", "snapcraft.yaml")
+                if not os.path.exists(f1):
+                    print(f"No snapcraft file found at folder {filename}")
+            filename = f1
+        if os.path.exists(filename):
+            print(f"Opening file {filename}")
+            with open(filename, "r") as f:
+                self._config = yaml.safe_load(f)
+        else:
+            self._config = None
         self._load_secrets(filename)
         self._github = Github(self._secrets)
         self._gitlab = Gitlab(self._secrets)
@@ -463,10 +476,11 @@ class Snapcraft(object):
 
     def _print_message(self, part, message, source = None):
         if part != self._last_part:
-            print(f"{self._colors.note}Part: {self._colors.reset}{part}{f' ({source})' if source else ''}")
+            print(f"Part: {self._colors.note}{part}{self._colors.reset}{f' ({source})' if source else ''}")
             self._last_part = part
-        print("  " + message, end="")
-        print(self._colors.reset)
+        if message is not None:
+            print("  " + message, end="")
+            print(self._colors.reset)
 
 
     def _get_tags(self, source):
@@ -498,6 +512,8 @@ class Snapcraft(object):
 
 
     def process_parts(self):
+        if self._config is None:
+            return
         for part in self._config['parts']:
             self.process_part(part)
 
@@ -516,7 +532,7 @@ class Snapcraft(object):
                     print()
                     return
 
-            if not source.endswith('.git'):
+            if (not source.endswith('.git')) and ((not 'source-type' in data) or (data['source-type'] != 'git')):
                 self._print_message(part, f"{self._colors.warning}Source is not a GIT repository{self._colors.reset}", source = source)
                 print()
                 return
@@ -528,6 +544,7 @@ class Snapcraft(object):
                     print()
                     return
 
+            self._print_message(part, None, source = source)
             tags = self._get_tags(source)
 
             if ('source-tag' not in data) and ('source-branch' not in data):
@@ -601,6 +618,8 @@ if sys.argv[1] == '-s':
     sys.argv = [sys.argv[0]] + sys.argv[2:]
 else:
     silent = False
+
+
 
 snap = Snapcraft(sys.argv[1])
 if silent:
