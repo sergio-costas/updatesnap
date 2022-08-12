@@ -8,6 +8,8 @@ import re
 import time
 import os
 import datetime
+import argparse
+import pathlib
 
 class Colors(object):
     def __init__(self):
@@ -613,19 +615,33 @@ class Snapcraft(object):
                 self._print_message(part, "  " + element)
 
 
-if sys.argv[1] == '-s':
-    silent = True
-    sys.argv = [sys.argv[0]] + sys.argv[2:]
+def process_folder(folder):
+    global arguments
+
+    snap = Snapcraft(folder)
+    if arguments.s:
+        snap.get_versions = False
+    if len(arguments.parts) > 2:
+        for a in arguments.parts:
+            snap.process_part(a)
+    else:
+        snap.process_parts()
+
+
+parser = argparse.ArgumentParser(prog="Update Snap",
+                                 description="Find the lastest source versions for snap files.")
+parser.add_argument('-s', action='store_true', help='Silent output.')
+parser.add_argument('-r', action='store_true', help='Process all the snaps recursively from the specified folder.')
+parser.add_argument('folder', default='.', help='The folder of the snapcraft project.')
+parser.add_argument('parts', nargs='*', help='A list of parts to check.')
+arguments = parser.parse_args(sys.argv[1:])
+
+if arguments.r: # recursive
+    for folder in os.listdir(arguments.folder):
+        full_path = os.path.join(arguments.folder, folder)
+        if not os.path.isdir(full_path):
+            continue
+        process_folder(full_path)
 else:
-    silent = False
+    process_folder(arguments.folder)
 
-
-
-snap = Snapcraft(sys.argv[1])
-if silent:
-    snap.get_versions = False
-if len(sys.argv) > 2:
-    for a in sys.argv[2:]:
-        snap.process_part(a)
-else:
-    snap.process_parts()

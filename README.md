@@ -4,7 +4,7 @@ A simple script that checks a snapcraft yaml file and shows possible new version
 
 ## Using it
 
-Just run *updatesnap.py /path/to/snapcraft.yaml*. Optionally, you can add a Part name, and updatesnap
+Just run *updatesnap.py [-s] [-r] /path/to/snapcraft.yaml*. Optionally, you can add a Part name, and updatesnap
 will check only that part, instead of all.
 
 The output is like this:
@@ -43,6 +43,11 @@ In this example, libsoup3 is fully updated, librest has three newer tags,
 but they seems to be a new major version (1.0.0) and a development version
 (0.9.0 and 0.9.1), and Gtk3 has a newer tag, but it is for Gtk4, so we
 must ignore it.
+
+Setting the *-r* parameter, it won't search for a *snapcraft.yaml* file in
+the specified folder, but will search it in each folder inside that folder.
+This is useful when you have an specific folder with several *snap* projects,
+each one in its own folder, and want to check all of them.
 
 ## The .secrets file
 
