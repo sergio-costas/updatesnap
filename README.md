@@ -56,6 +56,6 @@ at *~/.config/updatesnap/*. This file can contain a Github username and token to
 avoid the access limits that Github imposes to anonymous API requests. The format
 is the following:
 
-github:
+github:  
     user: *username*  
-    token: *github access token*  
+    token: *github access token*
