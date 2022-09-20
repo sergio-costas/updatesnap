@@ -57,5 +57,5 @@ avoid the access limits that Github imposes to anonymous API requests. The forma
 is the following:
 
 github:
-    user: *username*
-    token: *github access token*
+    user: *username*  
+    token: *github access token*  
