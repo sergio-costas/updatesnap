@@ -56,6 +56,15 @@ at *~/.config/updatesnap/*. This file can contain a Github username and token to
 avoid the access limits that Github imposes to anonymous API requests. The format
 is the following:
 
+## TODO
+
+* Migrate to specific github and gitlab modules instead of using custom code
+* Add version parsing capabilities to automatize it even further
+  * List only newer versions
+  * Add limits to major/minor version numbers (for parts that can't be compiled with too new versions of other parts)
+  * Add odd/even detection for cases where odd minor numbers are development versions
+* Automagically generate an updated *snapcraft.yaml* file
+
 github:  
     user: *username*  
     token: *github access token*
