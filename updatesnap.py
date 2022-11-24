@@ -621,7 +621,7 @@ def process_folder(folder):
     snap = Snapcraft(folder)
     if arguments.s:
         snap.get_versions = False
-    if len(arguments.parts) > 2:
+    if len(arguments.parts) >= 1:
         for a in arguments.parts:
             snap.process_part(a)
     else:
