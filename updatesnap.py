@@ -10,6 +10,7 @@ import os
 import datetime
 import argparse
 import pathlib
+import pkg_resources
 
 class Colors(object):
     def __init__(self):
@@ -364,7 +365,7 @@ class Github(GitClass):
         return self._read_pages(branch_command)
 
 
-    def get_tags(self, repository):
+    def get_tags(self, repository, current_tag = None):
         uri = self._is_github(repository)
         if uri is None:
             return None
@@ -384,7 +385,6 @@ class Github(GitClass):
                          "date": datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")})
         self._colors.clear_line()
         return tags
-
 
 
 class Gitlab(GitClass):
@@ -451,8 +451,7 @@ class Snapcraft(object):
             filename = f1
         if os.path.exists(filename):
             print(f"Opening file {filename}")
-            with open(filename, "r") as f:
-                self._config = yaml.safe_load(f)
+            self._config = self._open_yaml_file_with_extensions(filename, "updatesnap")
         else:
             self._config = None
         self._load_secrets(filename)
@@ -460,6 +459,36 @@ class Snapcraft(object):
         self._gitlab = Gitlab(self._secrets)
         self.get_versions = True
         self._last_part = None
+
+    def _open_yaml_file_with_extensions(self, filename, ext_name):
+        """ This method opens a YAML file, explores it searching for a comment
+            with the text '# ext:ext_name' (being 'ext_name' the parameter
+            passed to the method), and it will include all the comments that
+            follow it replacing the '#' with a blank space, until it finds
+            another comment with the text '# endext', or with a non-comment
+            line. This allows to add extra fields in a YAML file without
+            breaking compatibility with snapcraft, because, by replacing
+            the # with an space, the format is preserved. """
+        newfile = ""
+        replace_comments = False
+        with open(filename, "r") as f:
+            for l in f.readlines():
+                if (len(l) == 0) or (l[0] != '#'):
+                    newfile += l
+                    replace_comments = False
+                    continue
+                # the line contains a valid comment
+                if l == f'# ext:{ext_name}\n':
+                    replace_comments = True
+                    continue
+                if l == '# endext\n':
+                    replace_comments = False
+                    continue
+                l = l[1:]
+                if (len(l) > 0) and (l[1] == ' '):
+                    l = ' ' + l
+                newfile += l
+        return yaml.safe_load(newfile)
 
 
     def _load_secrets(self, filename):
@@ -504,12 +533,60 @@ class Snapcraft(object):
         branches = self._gitlab.get_branches(source)
         return branches
 
+    def _read_number(self, text):
+        n = 0
+        if (len(text) == 0) or (text[0] not in '0123456789'):
+            return None, text
+        while (len(text) > 0) and (text[0] in '0123456789'):
+            n *= 10
+            n += int(text[0])
+            text = text[1:]
+        return n, text
 
-    def _get_version(self, entry, check = False):
-
-        version = Version(entry)
-        if (not version.valid) and check:
-            print(f"{self._colors.critical}Unknown tag/branch format for {entry}{self._colors.reset}")
+    def _get_version(self, part, entry, entry_format, check):
+        e_format = None
+        if ((entry_format is None) or ("format" not in entry_format)):
+            if re.match('^[0-9]+[.][0-9]+[.][0-9]+$', entry):
+                e_format = '%M.%m.%R'
+            elif re.match('^v[0-9]+[.][0-9]+[.][0-9]+$', entry):
+                e_format = 'v%M.%m.%R'
+            elif re.match('^[0-9]+[.][0-9]+$', entry):
+                e_format = '%M.%m'
+        else:
+            e_format = entry_format['format']
+        if e_format is None:
+            if check:
+                print(f"{self._colors.critical}Missing tag version format for {part}{self._colors.reset}.")
+            return None # unknown format
+        # space is "no element". Adding it in front of the first block simplifies the code
+        major = 0
+        minor = 0
+        revision = 0
+        fmt = (" " + e_format).split("%")
+        for part in fmt:
+            if part[0] != ' ':
+                number, entry = self._read_number(entry)
+                if number is None:
+                    return None # not found a number when expected
+                if part[0] == 'M':
+                    major = number
+                elif part[0] == 'm':
+                    minor = number
+                elif part[0] == 'r':
+                    revision = number
+            part = part[1:]
+            if len(part) == 0:
+                continue
+            if not entry.startswith(part):
+                return None
+        version = pkg_resources.parse_version(f"{major}.{minor}.{revision}")
+        if entry_format is not None:
+            if "max_version" in entry_format:
+                if version >= pkg_resources.parse_version(entry_format["max_version"]):
+                    return None
+            if "min_version" in entry_format:
+                if version < pkg_resources.parse_version(entry_format["min_version"]):
+                    return None
         return version
 
 
@@ -555,12 +632,12 @@ class Snapcraft(object):
 
             if 'source-tag' in data:
                 self._print_message(part, f"Current tag: {data['source-tag']}", source = source)
-                current_version = self._get_version(data['source-tag'], True)
-                self._sort_tags(part, data['source-tag'], tags)
+                version_format = data['version_format'] if ('version_format' in data) else None
+                self._sort_tags(part, data['source-tag'], tags, version_format)
 
             if 'source-branch' in data:
                 self._print_message(part, f"Current branch: {data['source-branch']}", source = source)
-                current_version = self._get_version(data['source-branch'], True)
+                current_version = data['source-branch']
                 self._print_message(part, f"Current version: {current_version}")
                 branches = self._get_branches(source)
                 self._sort_elements(part, current_version, branches, "branch")
@@ -577,7 +654,7 @@ class Snapcraft(object):
             self._print_message(part, f"  {tag['name']} ({tag['date']})")
 
 
-    def _sort_tags(self, part, current_tag, tags):
+    def _sort_tags(self, part, current_tag, tags, version_format):
         if tags is None:
             self._print_message(part, f"{self._colors.critical}No tags found")
             return
@@ -590,7 +667,21 @@ class Snapcraft(object):
             self._print_message(part, f"{self._colors.critical}Error:{self._colors.reset} can't find the current tag in the tag list.")
             return
         self._print_message(part, f"Current tag date: {current_date}")
-        newer_tags = [t for t in tags if (t['date'] >= current_date) and (t['name'] != current_tag)]
+        current_version = self._get_version(part, current_tag, version_format, True)
+        newer_tags = []
+        for t in tags:
+            if t['name'] == current_tag:
+                continue
+            if t['date'] >= current_date:
+                continue
+            if current_version is not None:
+                version = self._get_version(part, t['name'], entry_format, False)
+                if version is None:
+                    continue
+                if version < current_version:
+                    continue
+            newer_tags.append(t)
+
         if len(newer_tags) == 0:
             self._print_message(part, f"{self._colors.ok}Tag updated{self._colors.reset}")
         else:
