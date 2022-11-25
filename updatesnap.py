@@ -556,7 +556,7 @@ class Snapcraft(object):
             e_format = entry_format['format']
         if e_format is None:
             if check:
-                print(f"{self._colors.critical}Missing tag version format for {part}{self._colors.reset}.")
+                self._print_message(part, f"{self._colors.critical}Missing tag version format for {part}{self._colors.reset}.")
             return None # unknown format
         # space is "no element". Adding it in front of the first block simplifies the code
         major = 0
@@ -572,20 +572,21 @@ class Snapcraft(object):
                     major = number
                 elif part[0] == 'm':
                     minor = number
-                elif part[0] == 'r':
+                elif part[0] == 'R':
                     revision = number
             part = part[1:]
             if len(part) == 0:
                 continue
             if not entry.startswith(part):
                 return None
+            entry = entry[len(part):]
         version = pkg_resources.parse_version(f"{major}.{minor}.{revision}")
         if entry_format is not None:
-            if "max_version" in entry_format:
-                if version >= pkg_resources.parse_version(entry_format["max_version"]):
+            if "lower-than" in entry_format:
+                if version >= pkg_resources.parse_version(str(entry_format["lower-than"])):
                     return None
-            if "min_version" in entry_format:
-                if version < pkg_resources.parse_version(entry_format["min_version"]):
+            if ("ignore-odd-minor" in entry_format) and (entry_format["ignore-odd-minor"]):
+                if (minor % 2) == 1:
                     return None
         return version
 
@@ -632,7 +633,7 @@ class Snapcraft(object):
 
             if 'source-tag' in data:
                 self._print_message(part, f"Current tag: {data['source-tag']}", source = source)
-                version_format = data['version_format'] if ('version_format' in data) else None
+                version_format = data['version-format'] if ('version-format' in data) else None
                 self._sort_tags(part, data['source-tag'], tags, version_format)
 
             if 'source-branch' in data:
@@ -672,10 +673,10 @@ class Snapcraft(object):
         for t in tags:
             if t['name'] == current_tag:
                 continue
-            if t['date'] >= current_date:
+            if t['date'] < current_date:
                 continue
             if current_version is not None:
-                version = self._get_version(part, t['name'], entry_format, False)
+                version = self._get_version(part, t['name'], version_format, False)
                 if version is None:
                     continue
                 if version < current_version:
