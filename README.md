@@ -56,15 +56,48 @@ at *~/.config/updatesnap/*. This file can contain a Github username and token to
 avoid the access limits that Github imposes to anonymous API requests. The format
 is the following:
 
-## TODO
-
-* Migrate to specific github and gitlab modules instead of using custom code
-* Add version parsing capabilities to automatize it even further
-  * List only newer versions
-  * Add limits to major/minor version numbers (for parts that can't be compiled with too new versions of other parts)
-  * Add odd/even detection for cases where odd minor numbers are development versions
-* Automagically generate an updated *snapcraft.yaml* file
-
 github:  
     user: *username*  
     token: *github access token*
+
+## Extra tokens in the snapcraft.yaml file
+
+It is possible to add extra tokens in the snapcraft.yaml file to allow to specify
+extra metadata about versions. These extra tokens are added as comments to avoid
+them interferring with snap*. The format is the following:
+
+parts:
+  PART_NAME:
+    PART_TOKENS
+# ext:updatesnap
+#   version-format:
+#     EXTRA_TOKENS
+# endext
+    MORE_PART_TOKENS
+
+The "# endext" line is optional. This format is designed to allow *update_snaps* to
+just replace the '#' symbol with an space in the lines between 'ext:updatesnap' and
+'endext', converting that in standard YAML code.
+
+The available extra tokens are:
+
+* format: includes an string specifying the version format. Thus, if the tags for this
+  part are in the form "pixman-0.40.0", then the token should be:
+
+    format: "pixman-%M.%m.%R"
+
+  The %M token specifies where is the Major value; the %m specifies the minor, and
+  the %R the revision.
+
+  If the format is "%M.%m.%R", "%M.%m" or "v%M.%m.%R", *update_snap* will autodetect
+  it, so in those cases it can be skipped.
+* lower-than: followed by a version number in %M.%m.%R format, specifies that the only
+  valid version values must be lower than that specified. An example is Gtk3, which
+  has "lower-than: 4" to avoid showing Gtk4 updates.
+* ignore-odd-minor: if specified as TRUE, version numbers with odd minor values will be
+  ignored, because they are presumed to be development versions.
+
+## TODO
+
+* Migrate to specific github and gitlab modules instead of using custom code
+* Automagically generate an updated *snapcraft.yaml* file
