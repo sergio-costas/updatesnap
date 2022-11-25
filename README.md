@@ -96,6 +96,10 @@ The available extra tokens are:
   has "lower-than: 4" to avoid showing Gtk4 updates.
 * ignore-odd-minor: if specified as TRUE, version numbers with odd minor values will be
   ignored, because they are presumed to be development versions.
+* same-major: if specified as TRUE, version numbers with a different major value than the
+  current version will be ignored.
+* same-minor: if specified as TRUE, version numbers with a different minor value than the
+  current version will be ignored.
 
 ## TODO
 

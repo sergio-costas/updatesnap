@@ -544,8 +544,10 @@ class Snapcraft(object):
         return n, text
 
     def _get_version(self, part, entry, entry_format, check):
+        if entry_format is None:
+            entry_format = {}
         e_format = None
-        if ((entry_format is None) or ("format" not in entry_format)):
+        if "format" not in entry_format:
             if re.match('^[0-9]+[.][0-9]+[.][0-9]+$', entry):
                 e_format = '%M.%m.%R'
             elif re.match('^v[0-9]+[.][0-9]+[.][0-9]+$', entry):
@@ -581,13 +583,12 @@ class Snapcraft(object):
                 return None
             entry = entry[len(part):]
         version = pkg_resources.parse_version(f"{major}.{minor}.{revision}")
-        if entry_format is not None:
-            if "lower-than" in entry_format:
-                if version >= pkg_resources.parse_version(str(entry_format["lower-than"])):
-                    return None
-            if ("ignore-odd-minor" in entry_format) and (entry_format["ignore-odd-minor"]):
-                if (minor % 2) == 1:
-                    return None
+        if "lower-than" in entry_format:
+            if version >= pkg_resources.parse_version(str(entry_format["lower-than"])):
+                return None
+        if ("ignore-odd-minor" in entry_format) and (entry_format["ignore-odd-minor"]):
+            if (minor % 2) == 1:
+                return None
         return version
 
 
@@ -659,6 +660,8 @@ class Snapcraft(object):
         if tags is None:
             self._print_message(part, f"{self._colors.critical}No tags found")
             return
+        if version_format is None:
+            version_format = {}
         current_date = None
         for tag in tags:
             if tag['name'] == current_tag:
@@ -680,6 +683,12 @@ class Snapcraft(object):
                 if version is None:
                     continue
                 if version < current_version:
+                    continue
+            if ("same-major" in version_format) and (version_format["same-major"]):
+                if version.major != current_version.major:
+                    continue
+            if ("same-minor" in version_format) and (version_format["same-minor"]):
+                if version.minor != current_version.minor:
                     continue
             newer_tags.append(t)
 
