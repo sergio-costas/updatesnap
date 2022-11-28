@@ -310,7 +310,7 @@ class Snapcraft(object):
 
 
     def _print_message(self, part, message, source = None):
-        if this.silent:
+        if self.silent:
             return
         if part != self._last_part:
             print(f"Part: {self._colors.note}{part}{self._colors.reset}{f' ({source})' if source else ''}")
@@ -386,58 +386,77 @@ class Snapcraft(object):
 
     def process_parts(self):
         if self._config is None:
-            return
+            return []
+        parts = []
         for part in self._config['parts']:
-            self.process_part(part)
+            parts.append(self.process_part(part))
+        return parts
 
 
     def process_part(self, part):
-            data = self._config['parts'][part]
-            if 'source' not in data:
-                return
-            source = data['source']
+        part_data = {
+            "name": part,
+            "version": None,
+            "use_branch": False,
+            "use_tag": False,
+            "missing_format": False,
+            "updates": []
+        }
+        if self._config is None:
+            return
+        if part not in self._config['parts']:
+            return
+        data = self._config['parts'][part]
+        if 'source' not in data:
+            return
+        source = data['source']
 
-            if ((not source.startswith('http://')) and
-                (not source.startswith('https://')) and
-                (not source.startswith('git://')) and
-                ((not 'source-type' in data) or (data['source-type'] != 'git'))):
-                    self._print_message(part, f"{self._colors.critical}Source is neither http:// nor git://{self._colors.reset}", source = source)
-                    print()
-                    return
-
-            if (not source.endswith('.git')) and ((not 'source-type' in data) or (data['source-type'] != 'git')):
-                self._print_message(part, f"{self._colors.warning}Source is not a GIT repository{self._colors.reset}", source = source)
+        if ((not source.startswith('http://')) and
+            (not source.startswith('https://')) and
+            (not source.startswith('git://')) and
+            ((not 'source-type' in data) or (data['source-type'] != 'git'))):
+                self._print_message(part, f"{self._colors.critical}Source is neither http:// nor git://{self._colors.reset}", source = source)
                 print()
-                return
+                return part_data
 
-            if 'savannah' in source:
-                url = urllib.parse.urlparse(source)
-                if 'savannah' in url.netloc:
-                    self._print_message(part, f"{self._colors.warning}Savannah repositories not supported{self._colors.reset}", source = source)
-                    print()
-                    return
-
-            self._print_message(part, None, source = source)
-            tags = self._get_tags(source)
-
-            if ('source-tag' not in data) and ('source-branch' not in data):
-                self._print_message(part, f"{self._colors.warning}Has neither a source-tag nor a source-branch{self._colors.reset}", source = source)
-                self._print_last_tags(part, tags)
-
-            if 'source-tag' in data:
-                self._print_message(part, f"Current tag: {data['source-tag']}", source = source)
-                version_format = data['version-format'] if ('version-format' in data) else None
-                self._sort_tags(part, data['source-tag'], tags, version_format)
-
-            if 'source-branch' in data:
-                self._print_message(part, f"Current branch: {data['source-branch']}", source = source)
-                current_version = data['source-branch']
-                self._print_message(part, f"Current version: {current_version}")
-                branches = self._get_branches(source)
-                self._sort_elements(part, current_version, branches, "branch")
-                self._print_message(part, f"{self._colors.note}Should be moved to an specific tag{self._colors.reset}")
-                self._print_last_tags(part, tags)
+        if (not source.endswith('.git')) and ((not 'source-type' in data) or (data['source-type'] != 'git')):
+            self._print_message(part, f"{self._colors.warning}Source is not a GIT repository{self._colors.reset}", source = source)
             print()
+            return part_data
+
+        if 'savannah' in source:
+            url = urllib.parse.urlparse(source)
+            if 'savannah' in url.netloc:
+                self._print_message(part, f"{self._colors.warning}Savannah repositories not supported{self._colors.reset}", source = source)
+                if not self.silent:
+                    print()
+                return part_data
+
+        self._print_message(part, None, source = source)
+        tags = self._get_tags(source)
+
+        if ('source-tag' not in data) and ('source-branch' not in data):
+            self._print_message(part, f"{self._colors.warning}Has neither a source-tag nor a source-branch{self._colors.reset}", source = source)
+            self._print_last_tags(part, tags)
+
+        if 'source-tag' in data:
+            part_data["use_tag"] = True
+            self._print_message(part, f"Current tag: {data['source-tag']}", source = source)
+            version_format = data['version-format'] if ('version-format' in data) else None
+            self._sort_tags(part, data['source-tag'], tags, version_format, part_data)
+
+        if 'source-branch' in data:
+            part_data["use_branch"] = True
+            self._print_message(part, f"Current branch: {data['source-branch']}", source = source)
+            current_version = data['source-branch']
+            self._print_message(part, f"Current version: {current_version}")
+            branches = self._get_branches(source)
+            self._sort_elements(part, current_version, branches, "branch")
+            self._print_message(part, f"{self._colors.note}Should be moved to an specific tag{self._colors.reset}")
+            self._print_last_tags(part, tags)
+        if not self.silent:
+            print()
+        return part_data
 
 
     def _print_last_tags(self, part, tags):
@@ -448,7 +467,7 @@ class Snapcraft(object):
             self._print_message(part, f"  {tag['name']} ({tag['date']})")
 
 
-    def _sort_tags(self, part, current_tag, tags, version_format):
+    def _sort_tags(self, part, current_tag, tags, version_format, part_data):
         if tags is None:
             self._print_message(part, f"{self._colors.critical}No tags found")
             return
@@ -467,6 +486,8 @@ class Snapcraft(object):
             elif re.match('^[0-9]+[.][0-9]+$', current_tag):
                 version_format["format"] = '%M.%m'
 
+        if "format" not in version_format:
+            part_data['missing_format'] = True
         current_date = None
         for tag in tags:
             if tag['name'] == current_tag:
@@ -476,6 +497,7 @@ class Snapcraft(object):
             self._print_message(part, f"{self._colors.critical}Error:{self._colors.reset} can't find the current tag in the tag list.")
             return
         self._print_message(part, f"Current tag date: {current_date}")
+        part_data['version'] = (tag['name'], current_date)
         current_version = self._get_version(part, current_tag, version_format, True)
         newer_tags = []
         for t in tags:
@@ -504,6 +526,7 @@ class Snapcraft(object):
             newer_tags.sort(reverse = True, key=lambda x: x.get('date'))
             for tag in newer_tags:
                 self._print_message(part, f"  {tag['name']} ({tag['date']})")
+                part_data["updates"].append(tag)
 
     def _sort_elements(self, part, current_version, elements, text, show_equal = False):
         newer_elements = []
