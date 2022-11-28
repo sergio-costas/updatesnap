@@ -49,6 +49,8 @@ the specified folder, but will search it in each folder inside that folder.
 This is useful when you have an specific folder with several *snap* projects,
 each one in its own folder, and want to check all of them.
 
+The *-s* parameter makes it *silent*, so nothing will be shown in the screen.
+
 ## The .secrets file
 
 Optionally it is possible to configure a YAML file named *updatesnap.secrets* and put it

@@ -226,9 +226,17 @@ class Gitlab(GitClass):
 
 
 class Snapcraft(object):
-    def __init__(self, filename = None):
+    def __init__(self):
         super().__init__()
         self._colors = Colors()
+        self._secrets = {}
+        self._config = None
+        self.silent = False
+        self._last_part = None
+
+
+    def load_local_file(self, filename = None):
+        """ Given a path/filename, will load the corresponding SNAPCRAFT.YAML file """
         if filename is None:
             filename = '.'
         if os.path.isdir(filename):
@@ -240,17 +248,23 @@ class Snapcraft(object):
             filename = f1
         if os.path.exists(filename):
             print(f"Opening file {filename}")
-            self._config = self._open_yaml_file_with_extensions(filename, "updatesnap")
-        else:
-            self._config = None
+            with open(filename, "r") as f:
+                data = f.read()
+            self._open_yaml_file_with_extensions(data, "updatesnap")
         self._load_secrets(filename)
+
+
+    def load_external_data(self, data, secrets):
+        """ process SNAPCRAFT.YAML data and SECRETS directly """
+
+        self._open_yaml_file_with_extensions(data, "updatesnap")
+        self._secrets = yaml.safe_load(secrets)
         self._github = Github(self._secrets)
         self._gitlab = Gitlab(self._secrets)
-        self.get_versions = True
-        self._last_part = None
 
-    def _open_yaml_file_with_extensions(self, filename, ext_name):
-        """ This method opens a YAML file, explores it searching for a comment
+
+    def _open_yaml_file_with_extensions(self, data, ext_name):
+        """ This method receives a YAML file content, explores it searching for a comment
             with the text '# ext:ext_name' (being 'ext_name' the parameter
             passed to the method), and it will include all the comments that
             follow it replacing the '#' with a blank space, until it finds
@@ -258,26 +272,27 @@ class Snapcraft(object):
             line. This allows to add extra fields in a YAML file without
             breaking compatibility with snapcraft, because, by replacing
             the # with an space, the format is preserved. """
+
         newfile = ""
         replace_comments = False
-        with open(filename, "r") as f:
-            for l in f.readlines():
-                if (len(l) == 0) or (l[0] != '#'):
-                    newfile += l
-                    replace_comments = False
-                    continue
-                # the line contains a valid comment
-                if l == f'# ext:{ext_name}\n':
-                    replace_comments = True
-                    continue
-                if l == '# endext\n':
-                    replace_comments = False
-                    continue
-                l = l[1:]
-                if (len(l) > 0) and (l[1] == ' '):
-                    l = ' ' + l
+        for l in data.split("\n"):
+            l += '\n' # restore the newline at the end
+            if (len(l) == 0) or (l[0] != '#'):
                 newfile += l
-        return yaml.safe_load(newfile)
+                replace_comments = False
+                continue
+            # the line contains a valid comment
+            if l == f'# ext:{ext_name}\n':
+                replace_comments = True
+                continue
+            if l == '# endext\n':
+                replace_comments = False
+                continue
+            l = l[1:]
+            if (len(l) > 0) and (l[1] == ' '):
+                l = ' ' + l
+            newfile += l
+        self._config = yaml.safe_load(newfile)
 
 
     def _load_secrets(self, filename):
@@ -285,16 +300,18 @@ class Snapcraft(object):
         if os.path.exists(secrets_file):
             with open(secrets_file, "r") as cfg:
                 self._secrets = yaml.safe_load(cfg)
-            return
-        secrets_file = os.path.join(os.path.split(os.path.abspath(filename))[0], "updatesnap.secrets")
-        if os.path.exists(secrets_file):
-            with open(secrets_file, "r") as cfg:
-                self._secrets = yaml.safe_load(cfg)
-            return
-        self._secrets = {}
+        else:
+            secrets_file = os.path.join(os.path.split(os.path.abspath(filename))[0], "updatesnap.secrets")
+            if os.path.exists(secrets_file):
+                with open(secrets_file, "r") as cfg:
+                    self._secrets = yaml.safe_load(cfg)
+        self._github = Github(self._secrets)
+        self._gitlab = Gitlab(self._secrets)
 
 
     def _print_message(self, part, message, source = None):
+        if this.silent:
+            return
         if part != self._last_part:
             print(f"Part: {self._colors.note}{part}{self._colors.reset}{f' ({source})' if source else ''}")
             self._last_part = part
@@ -304,8 +321,6 @@ class Snapcraft(object):
 
 
     def _get_tags(self, source):
-        if not self.get_versions:
-            return []
         tags = self._github.get_tags(source)
         if tags is not None:
             return tags
@@ -314,8 +329,6 @@ class Snapcraft(object):
 
 
     def _get_branches(self, source):
-        if not self.get_versions:
-            return []
         branches = self._github.get_branches(source)
         if branches is not None:
             return branches
@@ -516,9 +529,10 @@ class Snapcraft(object):
 def process_folder(folder):
     global arguments
 
-    snap = Snapcraft(folder)
+    snap = Snapcraft()
+    snap.load_local_file(folder)
     if arguments.s:
-        snap.get_versions = False
+        snap.silent = True
     if len(arguments.parts) >= 1:
         for a in arguments.parts:
             snap.process_part(a)
