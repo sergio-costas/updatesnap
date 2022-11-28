@@ -30,217 +30,6 @@ class Colors(object):
         print("\033[2K", end="\r") # clear the line
 
 
-class Version(object):
-    def __init__(self, version_string):
-        self.major = None
-        self.minor = None
-        self.revision = None
-        self.rc = None
-        self.valid = False
-
-        if version_string.startswith("wip/"):
-            return
-
-        # MAJOR.MINOR.REVISION.RC
-        if self._check_majorminorrevision(version_string, '.', False, rcseparator='.'):
-            return
-
-        # MAJOR.MINOR.REVISION
-        if self._check_majorminorrevision(version_string, '.', False):
-            return
-
-        # MAJOR.MINOR.REVISIONrcXX
-        if self._check_majorminorrevision(version_string, '.', False, rcseparator='rc'):
-            return
-
-        # MAJOR.MINOR.REVISION.rcXX
-        if self._check_majorminorrevision(version_string, '.', False, rcseparator='.rc'):
-            return
-
-        # MAJOR.MINOR.REVISION-XX
-        if self._check_majorminorrevision(version_string, '.', False, rcseparator='-'):
-            return
-
-        # aaaaMAJOR.MINOR.REVISION
-        if self._check_majorminorrevision(version_string, '.', True):
-            return
-
-        # aaaaMAJOR_MINOR_REVISION
-        if self._check_majorminorrevision(version_string, '_', True):
-            return
-
-        # aaaaMAJOR-MINOR-REVISION
-        if self._check_majorminorrevision(version_string, '-', True):
-            return
-
-        # MAJOR.MINOR
-        if self._check_majorminor(version_string, '.', False):
-            return
-
-
-        # MAJOR-MINOR
-        if self._check_majorminor(version_string, '-', False):
-            return
-
-        # MAJOR_MINOR
-        if self._check_majorminor(version_string, '_', False):
-            return
-
-        # aaaaMAJOR.MINOR
-        if self._check_majorminor(version_string, '.', True):
-            return
-
-        # aaaaMAJOR-MINOR
-        if self._check_majorminor(version_string, '-', True):
-            return
-
-        # aaaaMAJOR_MINOR
-        if self._check_majorminor(version_string, '_', True):
-            return
-
-        # MAJOR
-        if self._check_major(version_string, False):
-            return
-
-        # aaaaMAJOR
-        if self._check_major(version_string, True):
-            return
-
-        # MAJOR.MINORaaaa
-        if self._check_majorminor(version_string, '.', False, True):
-            return
-
-
-    def _check_major(self, version_string, prefix):
-        search_string = f'[0-9]+$'
-        if not prefix:
-            search_string = '^' + search_string
-        s = re.search(search_string, version_string)
-        if s:
-            s = s.group()
-            self.major = int(s)
-            self.valid = True
-            return True
-        return False
-
-
-    def _check_majorminor(self, version_string, separator, prefix, suffix = False):
-        separator2 = separator.replace('.', '[.]')
-        search_string = f'[0-9]+{separator2}[0-9]+'
-        if not suffix:
-            search_string += '$'
-        if not prefix:
-            search_string = '^' + search_string
-        s = re.search(search_string, version_string)
-        if s:
-            s = s.group()
-            n = s.split(separator)
-            self.major = int(n[0])
-            self.minor = int(n[1])
-            self.valid = True
-            return True
-        return False
-
-
-    def _check_majorminorrevision(self, version_string, separator, prefix, rcseparator = None, suffix = False):
-        if rcseparator:
-            rcseparator2 = rcseparator.replace('.', '[.]')
-        separator2 = separator.replace('.', '[.]')
-        search_string = f'[0-9]+{separator2}[0-9]+{separator2}[0-9]+'
-        if not prefix:
-            search_string = '^' + search_string
-        if rcseparator:
-            search_string += f'{rcseparator2}[0-9]+'
-        if not suffix:
-            search_string += '$'
-        s = re.search(search_string, version_string)
-        if s:
-            s = s.group()
-            if rcseparator:
-                rcsepos = s.rfind(rcseparator)
-                self.rc = int(s[rcsepos + len(rcseparator):])
-                s = s[:rcsepos]
-            n = s.split(separator)
-            self.major = int(n[0])
-            self.minor = int(n[1])
-            self.revision = int(n[2])
-            self.valid = True
-            return True
-        return False
-
-
-    def __str__(self):
-        if self.major is None:
-            return "Unknown"
-        version = str(self.major)
-        if self.minor is None:
-            return version
-        version += "." + str(self.minor)
-        if self.revision is None and self.rc is None:
-            return version
-        if self.revision is not None:
-            version += "." + str(self.revision)
-        if self.rc is not None:
-            version += "rc" + str(self.rc)
-        return version
-
-
-    def __repr__(self):
-        return self.__str__()
-
-
-    def is_newer(self, other, also_equal = False):
-        if not self.valid:
-            return False
-        if not other.valid:
-            return True
-        if self.major is None and other.major is None:
-            return also_equal
-        if self.major is None:
-            return False
-        if other.major is None:
-            return True
-        if self.major > other.major:
-            return True
-        if self.major < other.major:
-            return False
-
-        if self.minor is None and other.minor is None:
-            return also_equal
-        if self.minor is None:
-            return False
-        if other.minor is None:
-            return True
-        if self.minor > other.minor:
-            return True
-        if self.minor < other.minor:
-            return False
-
-        # It is possible to have major.minor RC
-        if self.revision is not None or other.revision is not None:
-            if self.revision is None:
-                return False
-            if other.revision is None:
-                return True
-            if self.revision > other.revision:
-                return True
-            if self.revision < other.revision:
-                return False
-
-        if self.rc is None and other.rc is None:
-            return also_equal
-        if self.rc is None:
-            return False
-        if other.rc is None:
-            return True
-        if self.rc > other.rc:
-            return True
-        if self.rc < other.rc:
-            return False
-
-        return also_equal
-
-
 class GitClass(object):
     def __init__(self, repo_type, secrets):
         super().__init__()
@@ -533,6 +322,7 @@ class Snapcraft(object):
         branches = self._gitlab.get_branches(source)
         return branches
 
+
     def _read_number(self, text):
         n = 0
         if (len(text) == 0) or (text[0] not in '0123456789'):
@@ -543,28 +333,17 @@ class Snapcraft(object):
             text = text[1:]
         return n, text
 
+
     def _get_version(self, part, entry, entry_format, check):
-        if entry_format is None:
-            entry_format = {}
-        e_format = None
         if "format" not in entry_format:
-            if re.match('^[0-9]+[.][0-9]+[.][0-9]+$', entry):
-                e_format = '%M.%m.%R'
-            elif re.match('^v[0-9]+[.][0-9]+[.][0-9]+$', entry):
-                e_format = 'v%M.%m.%R'
-            elif re.match('^[0-9]+[.][0-9]+$', entry):
-                e_format = '%M.%m'
-        else:
-            e_format = entry_format['format']
-        if e_format is None:
             if check:
                 self._print_message(part, f"{self._colors.critical}Missing tag version format for {part}{self._colors.reset}.")
             return None # unknown format
-        # space is "no element". Adding it in front of the first block simplifies the code
         major = 0
         minor = 0
         revision = 0
-        fmt = (" " + e_format).split("%")
+        # space is "no element". Adding it in front of the first block simplifies the code
+        fmt = (" " + entry_format["format"]).split("%")
         for part in fmt:
             if part[0] != ' ':
                 number, entry = self._read_number(entry)
@@ -662,6 +441,19 @@ class Snapcraft(object):
             return
         if version_format is None:
             version_format = {}
+        if "format" not in version_format:
+            # if the version format is not specified,
+            # automagically detect it between any of these common formats:
+            # * %M.%m.%R
+            # * v%M.%m.%R
+            # * %M.%m
+            if re.match('^[0-9]+[.][0-9]+[.][0-9]+$', current_tag):
+                version_format["format"] = '%M.%m.%R'
+            elif re.match('^v[0-9]+[.][0-9]+[.][0-9]+$', current_tag):
+                version_format["format"] = 'v%M.%m.%R'
+            elif re.match('^[0-9]+[.][0-9]+$', current_tag):
+                version_format["format"] = '%M.%m'
+
         current_date = None
         for tag in tags:
             if tag['name'] == current_tag:
@@ -704,14 +496,19 @@ class Snapcraft(object):
         newer_elements = []
         if elements is None:
             elements = []
+        current_element = None
         for element in elements:
-            if (current_version is None) or self._get_version(element['name']).is_newer(current_version, show_equal):
-                newer_elements.append(element['name'])
+            if current_version == element['name']:
+                current_element = element
+                break
+        for element in elements:
+            if (current_element is None) or (element['date'] > current_element['date']):
+                newer_elements.append(element)
         if len(newer_elements) == 0:
             self._print_message(part, f"{self._colors.ok}Branch updated{self._colors.reset}")
         else:
             self._print_message(part, text)
-            newer_elements.sort(reverse = True)
+            newer_elements.sort(reverse = True, key=lambda x: x.get('date'))
             for element in newer_elements:
                 self._print_message(part, "  " + element)
 
