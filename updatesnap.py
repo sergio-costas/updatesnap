@@ -31,18 +31,31 @@ class Colors(object):
 
 
 class GitClass(object):
-    def __init__(self, repo_type, secrets):
+    def __init__(self, repo_type, silent = False):
         super().__init__()
+        self._silent = silent
         self._token = None
         self._user = None
         self._colors = Colors()
-        if (repo_type == 'github') and 'github' in secrets:
+        self._repo_type = repo_type
+
+
+    def set_secrets(self, secrets):
+        if (self._repo_type == 'github') and 'github' in secrets:
             self._user = secrets['github']['user']
             self._token = secrets['github']['token']
 
 
+    def set_secret(self, secret, value):
+        if secret == 'user':
+            self._user = value
+        elif secret == 'token':
+            self._token = value
+
+
     def _read_uri(self, uri):
-        print(f"Asking URI {uri}     ", end="\r")
+        if not self._silent:
+            print(f"Asking URI {uri}     ", end="\r")
         while True:
             try:
                 if (self._user is not None) and (self._token is not None):
@@ -51,7 +64,8 @@ class GitClass(object):
                     response = requests.get(uri)
                 break
             except:
-                print(f"Retrying URI {uri}     ", end="\r")
+                if not self._silent:
+                    print(f"Retrying URI {uri}     ", end="\r")
                 time.sleep(1)
         return response
 
@@ -61,7 +75,8 @@ class GitClass(object):
         while uri is not None:
             response = self._read_uri(uri)
             if response.status_code != 200:
-                print(f"{self._colors.critical}Status code {response.status_code} when asking for {uri}{self._colors.reset}")
+                if not self._silent:
+                    print(f"{self._colors.critical}Status code {response.status_code} when asking for {uri}{self._colors.reset}")
                 return []
             headers = response.headers
             data = response.json()
@@ -131,8 +146,8 @@ class GitClass(object):
 
 
 class Github(GitClass):
-    def __init__(self, secrets):
-        super().__init__("github", secrets)
+    def __init__(self, silent = False):
+        super().__init__("github", silent)
         self._api_url = 'https://api.github.com/repos/'
 
 
@@ -177,8 +192,8 @@ class Github(GitClass):
 
 
 class Gitlab(GitClass):
-    def __init__(self, secrets):
-        super().__init__("gitlab", secrets)
+    def __init__(self, silent = False):
+        super().__init__("gitlab", silent)
 
 
     def _is_gitlab(self, repository):
@@ -226,13 +241,24 @@ class Gitlab(GitClass):
 
 
 class Snapcraft(object):
-    def __init__(self):
+    def __init__(self, silent):
         super().__init__()
         self._colors = Colors()
         self._secrets = {}
         self._config = None
-        self.silent = False
+        self.silent = silent
         self._last_part = None
+        self._github = Github(silent)
+        self._gitlab = Gitlab(silent)
+
+
+    def set_secret(self, backend, key, value):
+        if backend == 'github':
+            self._github.set_secret(key, value)
+        elif backend == 'gitlab':
+            self._gitlab.set_secret(key, value)
+        else:
+            print(f"Unknown backend: {backend}")
 
 
     def load_local_file(self, filename = None):
@@ -254,13 +280,14 @@ class Snapcraft(object):
         self._load_secrets(filename)
 
 
-    def load_external_data(self, data, secrets):
+    def load_external_data(self, data, secrets = None):
         """ process SNAPCRAFT.YAML data and SECRETS directly """
 
         self._open_yaml_file_with_extensions(data, "updatesnap")
-        self._secrets = yaml.safe_load(secrets)
-        self._github = Github(self._secrets)
-        self._gitlab = Gitlab(self._secrets)
+        if secrets:
+            self._secrets = yaml.safe_load(secrets)
+            self._github.set_secrets(self._secrets)
+            self._gitlab.set_secrets(self._secrets)
 
 
     def _open_yaml_file_with_extensions(self, data, ext_name):
@@ -305,8 +332,8 @@ class Snapcraft(object):
             if os.path.exists(secrets_file):
                 with open(secrets_file, "r") as cfg:
                     self._secrets = yaml.safe_load(cfg)
-        self._github = Github(self._secrets)
-        self._gitlab = Gitlab(self._secrets)
+        self._github.set_secrets(self._secrets)
+        self._gitlab.set_secrets(self._secrets)
 
 
     def _print_message(self, part, message, source = None):
@@ -403,12 +430,12 @@ class Snapcraft(object):
             "updates": []
         }
         if self._config is None:
-            return
+            return None
         if part not in self._config['parts']:
-            return
+            return None
         data = self._config['parts'][part]
         if 'source' not in data:
-            return
+            return None
         source = data['source']
 
         if ((not source.startswith('http://')) and
@@ -528,6 +555,7 @@ class Snapcraft(object):
                 self._print_message(part, f"  {tag['name']} ({tag['date']})")
                 part_data["updates"].append(tag)
 
+
     def _sort_elements(self, part, current_version, elements, text, show_equal = False):
         newer_elements = []
         if elements is None:
@@ -549,34 +577,97 @@ class Snapcraft(object):
                 self._print_message(part, "  " + element)
 
 
+def apply_local_secrets(snap):
+    global arguments
+    if arguments.github_user:
+        snap.set_secret("github", "user", arguments.github_user)
+    if arguments.github_token:
+        snap.set_secret("github", "token", arguments.github_token)
+    return
+
+
 def process_folder(folder):
     global arguments
 
-    snap = Snapcraft()
+    snap = Snapcraft(arguments.s)
     snap.load_local_file(folder)
-    if arguments.s:
-        snap.silent = True
+    apply_local_secrets(snap);
     if len(arguments.parts) >= 1:
+        retdata = []
         for a in arguments.parts:
-            snap.process_part(a)
+            retdata.append(snap.process_part(a))
+        return retdada
     else:
-        snap.process_parts()
+        return snap.process_parts()
+
+
+def process_data(data):
+    global arguments
+
+    snap = Snapcraft(arguments.s)
+    snap.load_external_data(data)
+    apply_local_secrets(snap)
+    if len(arguments.parts) >= 1:
+        retdata = []
+        for a in arguments.parts:
+            retdata.append(snap.process_part(a))
+        return retdata
+    else:
+        return snap.process_parts()
+
+
+def print_resume(data):
+    printed_line = False
+    for entry in data:
+        if entry is None:
+            continue
+        if printed_line:
+            print()
+            printed_line = False
+        if entry["missing_format"]:
+            print(f"{entry['name']}: needs version format definition.")
+            printed_line = True
+        if entry["use_branch"]:
+            print(f"{entry['name']}: uses branch instead of tag.")
+            printed_line = True
+        if not entry["use_branch"] and not entry["use_tag"]:
+            print(f"{entry['name']}: has not defined tag or branch to use.")
+            printed_line = True
+        if len(entry["updates"]) == 0:
+            continue
+        printed_line = True
+        print(f"{entry['name']} current version: {entry['version'][0]} ({entry['version'][1]}); available updates:")
+        for update in entry["updates"]:
+            print(f"    {update['name']} (tagget at {update['date']})")
 
 
 parser = argparse.ArgumentParser(prog="Update Snap",
                                  description="Find the lastest source versions for snap files.")
 parser.add_argument('-s', action='store_true', help='Silent output.')
 parser.add_argument('-r', action='store_true', help='Process all the snaps recursively from the specified folder.')
+parser.add_argument('--github-user', action='store', help='User name for accesing Github projects.')
+parser.add_argument('--github-token', action='store', help='Access token for accesing Github projects.')
 parser.add_argument('folder', default='.', help='The folder of the snapcraft project.')
 parser.add_argument('parts', nargs='*', help='A list of parts to check.')
 arguments = parser.parse_args(sys.argv[1:])
 
 if arguments.r: # recursive
+    if arguments.folder.startswith("http://") or arguments.folder.startswith("https://"):
+        print(f"-r parameter can't be used with http or https. Aborting.")
+        sys.exit(-1)
+    retval = []
     for folder in os.listdir(arguments.folder):
         full_path = os.path.join(arguments.folder, folder)
         if not os.path.isdir(full_path):
             continue
-        process_folder(full_path)
+        retval += process_folder(full_path)
 else:
-    process_folder(arguments.folder)
-
+    if (not arguments.folder.startswith("http://")) and (not arguments.folder.startswith("https://")):
+        retval = process_folder(arguments.folder)
+    else:
+        response = requests.get(arguments.folder)
+        if not response:
+            print(f"Failed to get the file {arguments.folder}: {response.status_code}")
+            sys.exit(-1)
+        retval = process_data(response.content.decode('utf-8'))
+print_resume(retval)

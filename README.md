@@ -4,8 +4,9 @@ A simple script that checks a snapcraft yaml file and shows possible new version
 
 ## Using it
 
-Just run *updatesnap.py [-s] [-r] /path/to/snapcraft.yaml*. Optionally, you can add a Part name, and updatesnap
-will check only that part, instead of all.
+Just run *updatesnap.py [-s] [-r] [--github-user=...] [--github-token=...] /path/to/snapcraft.yaml*.
+Optionally, you can add a Part name, and updatesnap will check only that part, instead of all. Also,
+you can replace the file path with a HTTP or HTTPS path, and updatesnap will download and process it.
 
 The output is like this:
 
@@ -44,12 +45,34 @@ but they seems to be a new major version (1.0.0) and a development version
 (0.9.0 and 0.9.1), and Gtk3 has a newer tag, but it is for Gtk4, so we
 must ignore it.
 
+After this "running" data, a summary will be also shown, like this:
+
+```
+gjs current version: 1.72.3 (2022-09-20 20:05:01-07:00); available updates:
+    1.75.1 (tagget at 2022-10-29 16:05:31-07:00)
+    1.74.1 (tagget at 2022-10-29 15:57:47-07:00)
+    1.74.0 (tagget at 2022-09-20 20:19:18-07:00)
+
+glib current version: 2.74.1 (2022-10-25 13:53:22+01:00); available updates:
+    2.74.2 (tagget at 2022-11-24 12:29:05+00:00)
+    2.75.0 (tagget at 2022-11-10 09:18:47+00:00)
+```
+
+It contains only those parts that have available updates, or have any kind
+of problem (like requiring a version format).
+
 Setting the *-r* parameter, it won't search for a *snapcraft.yaml* file in
 the specified folder, but will search it in each folder inside that folder.
 This is useful when you have an specific folder with several *snap* projects,
 each one in its own folder, and want to check all of them.
 
-The *-s* parameter makes it *silent*, so nothing will be shown in the screen.
+The *-s* parameter makes it *silent*, so nothing will be shown in the screen
+during the process, only the final summary. It is useful for unnatended
+processing.
+
+The *--github-user=...* and *--github-token=* parameters allows to specify a
+user and a token for the connections to github, allowing to avoid the access
+limits.
 
 ## The .secrets file
 
