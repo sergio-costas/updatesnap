@@ -81,9 +81,11 @@ at *~/.config/updatesnap/*. This file can contain a Github username and token to
 avoid the access limits that Github imposes to anonymous API requests. The format
 is the following:
 
+```
 github:  
     user: *username*  
     token: *github access token*
+```
 
 ## Extra tokens in the snapcraft.yaml file
 
@@ -91,6 +93,7 @@ It is possible to add extra tokens in the snapcraft.yaml file to allow to specif
 extra metadata about versions. These extra tokens are added as comments to avoid
 them interferring with snap*. The format is the following:
 
+```
 parts:
   PART_NAME:
     PART_TOKENS
@@ -99,6 +102,7 @@ parts:
 #     EXTRA_TOKENS
 # endext
     MORE_PART_TOKENS
+```
 
 The "# endext" line is optional. This format is designed to allow *update_snaps* to
 just replace the '#' symbol with an space in the lines between 'ext:updatesnap' and
