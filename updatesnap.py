@@ -283,6 +283,7 @@ class Snapcraft(object):
     def load_external_data(self, data, secrets = None):
         """ process SNAPCRAFT.YAML data and SECRETS directly """
 
+        self._load_secrets(None)
         self._open_yaml_file_with_extensions(data, "updatesnap")
         if secrets:
             self._secrets = yaml.safe_load(secrets)
@@ -328,10 +329,11 @@ class Snapcraft(object):
             with open(secrets_file, "r") as cfg:
                 self._secrets = yaml.safe_load(cfg)
         else:
-            secrets_file = os.path.join(os.path.split(os.path.abspath(filename))[0], "updatesnap.secrets")
-            if os.path.exists(secrets_file):
-                with open(secrets_file, "r") as cfg:
-                    self._secrets = yaml.safe_load(cfg)
+            if filename is not None:
+                secrets_file = os.path.join(os.path.split(os.path.abspath(filename))[0], "updatesnap.secrets")
+                if os.path.exists(secrets_file):
+                    with open(secrets_file, "r") as cfg:
+                        self._secrets = yaml.safe_load(cfg)
         self._github.set_secrets(self._secrets)
         self._gitlab.set_secrets(self._secrets)
 
