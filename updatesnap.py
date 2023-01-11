@@ -598,7 +598,7 @@ def process_folder(folder):
         retdata = []
         for a in arguments.parts:
             retdata.append(snap.process_part(a))
-        return retdada
+        return retdata
     else:
         return snap.process_parts()
 
