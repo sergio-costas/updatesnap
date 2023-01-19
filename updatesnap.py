@@ -624,7 +624,7 @@ def process_data(data):
         return snap.process_parts()
 
 
-def print_resume(data):
+def print_summary(data):
     printed_line = False
     for entry in data:
         if entry is None:
@@ -678,4 +678,4 @@ else:
             print(f"Failed to get the file {arguments.folder}: {response.status_code}")
             sys.exit(-1)
         retval = process_data(response.content.decode('utf-8'))
-print_resume(retval)
+print_summary(retval)
