@@ -299,7 +299,13 @@ class Snapcraft(object):
             another comment with the text '# endext', or with a non-comment
             line. This allows to add extra fields in a YAML file without
             breaking compatibility with snapcraft, because, by replacing
-            the # with an space, the format is preserved. """
+            the # with an space, the format is preserved.
+
+            The 'ext_name' part allows to add in a file blocks for several
+            different programs without they interferring with others. This
+            way, program1 can enable only the blocks marked with '# ext:program1',
+            while program2 can enable only the blocks marked with '# ext:program2',
+            for example, thus allowing to just reuse this method."""
 
         newfile = ""
         replace_comments = False
