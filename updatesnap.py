@@ -417,6 +417,10 @@ class Snapcraft(object):
         if ("ignore-odd-minor" in entry_format) and (entry_format["ignore-odd-minor"]):
             if (minor % 2) == 1:
                 return None
+        if ("no-9x-revisions" in entry_format) and (entry_format["no-9x-revisions"]):
+            if revision >= 90:
+                return None
+
         return version
 
 
