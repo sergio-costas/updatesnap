@@ -191,6 +191,7 @@ class Github(GitClass):
         tag_command = self.join_url(self._rb(self._api_url), self._rb(uri.path), 'tags?sort=created&direction=desc')
         data = self._read_pages(tag_command)
         tags = []
+        self._current_tag = None
         for tag in data:
             tag_info = self._read_page(tag['commit']['url'])
             if tag_info is None:
