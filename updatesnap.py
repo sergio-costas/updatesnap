@@ -241,12 +241,22 @@ class Gitlab(GitClass):
         return branches
 
 
+    def _stop_download(self, data):
+        if self._current_tag is None:
+            return False
+        for entry in data:
+            if ('name' in entry) and (self._current_tag == entry['name']):
+                return True
+        return False
+
+
     def get_tags(self, repository, current_tag = None):
         uri = self._is_gitlab(repository)
         if uri is None:
             return None
 
-        tag_command = self.join_url(uri.scheme + '://', uri.netloc, 'api/v4/projects', self._project_name(uri), 'repository/tags')
+        self._current_tag = current_tag
+        tag_command = self.join_url(uri.scheme + '://', uri.netloc, 'api/v4/projects', self._project_name(uri), 'repository/tags?order_by=updated&sort=desc')
         data = self._read_pages(tag_command)
         tags = []
         for tag in data:
