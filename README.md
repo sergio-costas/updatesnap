@@ -132,6 +132,7 @@ The available extra tokens are:
 * no-9x-revisions: if specified as TRUE, version numbers with a revision value equal or
   greater than 90 will be ignored. Useful for projects that use these revision numbers
   as "prelude" to a new minor version.
+* ignore: don't try to check this entry. Useful for "archived" projects.
 
 ## TODO
 

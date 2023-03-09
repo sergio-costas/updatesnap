@@ -174,7 +174,7 @@ class Github(GitClass):
         if uri is None:
             return None
 
-        tag_command = self.join_url(self._rb(self._api_url), self._rb(uri.path), 'tags')
+        tag_command = self.join_url(self._rb(self._api_url), self._rb(uri.path), 'tags?sort=created&direction=desc')
         data = self._read_pages(tag_command)
         tags = []
         for tag in data:
@@ -187,6 +187,8 @@ class Github(GitClass):
                 date = tag_info['commit']['author']['date']
             tags.append({"name": tag['name'],
                          "date": datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")})
+            if (current_tag is not None) and (current_tag == tag['name']):
+                break
         self._colors.clear_line()
         return tags
 
@@ -225,7 +227,7 @@ class Gitlab(GitClass):
         return branches
 
 
-    def get_tags(self, repository):
+    def get_tags(self, repository, current_tag = None):
         uri = self._is_gitlab(repository)
         if uri is None:
             return None
@@ -356,11 +358,11 @@ class Snapcraft(object):
             print(self._colors.reset)
 
 
-    def _get_tags(self, source):
-        tags = self._github.get_tags(source)
+    def _get_tags(self, source, current_tag = None):
+        tags = self._github.get_tags(source, current_tag)
         if tags is not None:
             return tags
-        tags = self._gitlab.get_tags(source)
+        tags = self._gitlab.get_tags(source, current_tag)
         return tags
 
 
@@ -449,6 +451,9 @@ class Snapcraft(object):
         data = self._config['parts'][part]
         if 'source' not in data:
             return None
+        if 'version-format' in data:
+            if ('ignore' in data['version-format']) and (data['version-format']['ignore']):
+                return None
         source = data['source']
 
         if ((not source.startswith('http://')) and
@@ -473,7 +478,11 @@ class Snapcraft(object):
                 return part_data
 
         self._print_message(part, None, source = source)
-        tags = self._get_tags(source)
+        if 'source-tag' in data:
+            current_tag = data['source-tag']
+        else:
+            current_tag = None
+        tags = self._get_tags(source, current_tag)
 
         if ('source-tag' not in data) and ('source-branch' not in data):
             self._print_message(part, f"{self._colors.warning}Has neither a source-tag nor a source-branch{self._colors.reset}", source = source)
