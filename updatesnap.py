@@ -69,6 +69,8 @@ class GitClass(object):
                 time.sleep(1)
         return response
 
+    def _stop_download(self, data):
+        return False
 
     def _read_pages(self, uri):
         elements = []
@@ -82,6 +84,8 @@ class GitClass(object):
             data = response.json()
             for entry in data:
                 elements.append(entry)
+            if self._stop_download(data):
+                break
             uri = None
             if "Link" in headers:
                 l = headers["link"]
@@ -169,11 +173,21 @@ class Github(GitClass):
         return self._read_pages(branch_command)
 
 
+    def _stop_download(self, data):
+        if self._current_tag is None:
+            return False
+        for entry in data:
+            if ('name' in entry) and (self._current_tag == entry['name']):
+                return True
+        return False
+
+
     def get_tags(self, repository, current_tag = None):
         uri = self._is_github(repository)
         if uri is None:
             return None
 
+        self._current_tag = current_tag
         tag_command = self.join_url(self._rb(self._api_url), self._rb(uri.path), 'tags?sort=created&direction=desc')
         data = self._read_pages(tag_command)
         tags = []
